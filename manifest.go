@@ -40,6 +40,10 @@ type Manifest struct {
 	// Preserve — файлы пользователя. Если такой файл есть в пакете, он ставится
 	// только при первой установке и дальше не заменяется и не удаляется.
 	Preserve []string `json:"preserve,omitempty"`
+	// Data — где программа хранит данные вне своей папки (настройки, токены, кэш
+	// WebView2): «${APPDATA}\Имя» или «${LOCALAPPDATA}\Имя». Stash удаляет их, только
+	// если при удалении программы выбрали «вместе с данными».
+	Data []string `json:"data,omitempty"`
 	// Exclude — что из папки сборки не класть в пакет.
 	Exclude      []string      `json:"exclude,omitempty"`
 	Requirements []Requirement `json:"requirements,omitempty"`
@@ -132,6 +136,11 @@ func (m *Manifest) Validate() error {
 			bad("requirements", "#%d: неизвестный check.type %q", i+1, r.Check.Type)
 		}
 	}
+	for _, d := range m.Data {
+		if !DataPathOK(d) {
+			bad("data", `%q — нужна папка вида ${APPDATA}\Имя или ${LOCALAPPDATA}\Имя`, d)
+		}
+	}
 	if m.MinStash != "" && !versionRe.MatchString(m.MinStash) {
 		bad("minStash", "%q — нужна версия вида 1.2.3", m.MinStash)
 	}
@@ -148,4 +157,20 @@ func NormalizeVersion(tag string) (string, error) {
 		return "", fmt.Errorf("версия %q: нужен тег вида v1.2.3", tag)
 	}
 	return v, nil
+}
+
+var dataRe = regexp.MustCompile(`^\$\{(APPDATA|LOCALAPPDATA)\}[\\/][^\\/*?"<>|:]+([\\/][^\\/*?"<>|:]+)*$`)
+
+// DataPathOK — путь данных программы: внутри %APPDATA% или %LOCALAPPDATA%, не сам
+// корень, без масок и «..». Удалять что-то шире Stash не станет.
+func DataPathOK(p string) bool {
+	if !dataRe.MatchString(p) {
+		return false
+	}
+	for _, part := range strings.FieldsFunc(p, func(r rune) bool { return r == '\\' || r == '/' }) {
+		if strings.Trim(part, ". ") == "" {
+			return false
+		}
+	}
+	return true
 }

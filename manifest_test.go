@@ -77,3 +77,27 @@ func TestNormalizeVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestDataPathOK(t *testing.T) {
+	for p, want := range map[string]bool{
+		`${APPDATA}\TeamoAssistant`:        true,
+		`${LOCALAPPDATA}\My App\cache`:     true,
+		`${APPDATA}/TeamoAssistant.exe`:    true,
+		`${APPDATA}`:                       false, // сам корень
+		`${APPDATA}\`:                      false,
+		`${APPDATA}\..\Local`:              false,
+		`${APPDATA}\x\..\..`:               false,
+		`${APPDATA}\*`:                     false,
+		`${USERPROFILE}\Documents`:         false,
+		`C:\Windows`:                       false,
+		`%APPDATA%\TeamoAssistant`:         false,
+		`${APPDATA}\TeamoAssistant\C:\Win`: false,
+	} {
+		if got := DataPathOK(p); got != want {
+			t.Errorf("DataPathOK(%q) = %v, ждали %v", p, got, want)
+		}
+	}
+	if _, err := ParseManifest([]byte(`{"id":"a","name":"A","kind":"files","data":["${APPDATA}\..\x"]}`)); err == nil {
+		t.Error("плохой data прошёл проверку")
+	}
+}
