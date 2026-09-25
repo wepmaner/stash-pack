@@ -2,6 +2,7 @@ package pack
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -22,7 +23,11 @@ const (
 	ManifestName = "stash.json"
 	FilesName    = "files.json"
 	PackageName  = "package.zip"
+	ImageName    = "icon.png" // необязательный: иконка из Manifest.Image
 )
+
+// maxImage — иконка для каталога, а не обои: больше не нужно.
+const maxImage = 512 << 10
 
 // FileList — files.json: эталон для проверки, починки и дельта-обновлений.
 type FileList struct {
@@ -41,12 +46,15 @@ type Options struct {
 	Out      string // куда положить три ассета
 	Manifest *Manifest
 	Version  string // тег релиза: v1.2.3 или 1.2.3
+	// ManifestDir — папка stash.json: от неё считается путь Manifest.Image.
+	ManifestDir string
 }
 
 type Result struct {
 	Files   int
 	Size    int64 // сумма размеров файлов
 	ZipSize int64
+	Image   bool // положили icon.png
 }
 
 // fixedTime — время файлов в zip. Одинаковое, чтобы одна и та же сборка давала
@@ -105,10 +113,31 @@ func Build(o Options) (*Result, error) {
 	if err := writeJSON(filepath.Join(o.Out, FilesName), FileList{Version: version, Files: entries}); err != nil {
 		return nil, err
 	}
+	if m.Image != "" {
+		if err := copyImage(filepath.Join(o.ManifestDir, filepath.FromSlash(m.Image)), filepath.Join(o.Out, ImageName)); err != nil {
+			return nil, err
+		}
+		res.Image = true
+		m.Image = ""
+	}
 	if err := writeJSON(filepath.Join(o.Out, ManifestName), m); err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+func copyImage(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("image: %w", err)
+	}
+	if !bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")) {
+		return fmt.Errorf("image: %s — нужен PNG", src)
+	}
+	if len(b) > maxImage {
+		return fmt.Errorf("image: %s — %d КБ, нужно не больше %d КБ", src, len(b)>>10, maxImage>>10)
+	}
+	return os.WriteFile(dst, b, 0o644)
 }
 
 func collect(dir, out string, exclude []string) ([]Entry, error) {

@@ -30,7 +30,11 @@ type Manifest struct {
 	// Icon — имя иконки Lucide для каталога, Hue — оттенок плитки (0–360).
 	Icon string `json:"icon,omitempty"`
 	Hue  int    `json:"hue,omitempty"`
-	Kind Kind   `json:"kind"`
+	// Image — своя иконка: PNG, путь относительно stash.json. stash-pack кладёт её
+	// в релиз отдельным файлом icon.png, а в релизный stash.json поле не пишет —
+	// старые версии Stash не знают его и отвергли бы манифест.
+	Image string `json:"image,omitempty"`
+	Kind  Kind   `json:"kind"`
 	// Entry — что запускать и за каким процессом следить (для exe).
 	Entry string `json:"entry,omitempty"`
 	// Preserve — файлы пользователя. Если такой файл есть в пакете, он ставится

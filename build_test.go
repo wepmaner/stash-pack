@@ -180,3 +180,30 @@ func TestBuildChrome(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildImage(t *testing.T) {
+	repo := t.TempDir()
+	png := "\x89PNG\r\n\x1a\n" + "fake"
+	writeTree(t, repo, map[string]string{"dist/app.exe": "MZ", "assets/icon.png": png, "assets/bad.png": "GIF89a"})
+	m, err := ParseManifest([]byte(`{"id":"app","name":"App","kind":"exe","entry":"app.exe","image":"assets/icon.png"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	res, err := Build(Options{Dir: filepath.Join(repo, "dist"), Out: out, Manifest: m, Version: "v1.0.0", ManifestDir: repo})
+	if err != nil || !res.Image {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(out, ImageName)); string(b) != png {
+		t.Fatalf("icon.png: %q", b)
+	}
+	// В релизный stash.json поле не попадает: старый Stash его не знает.
+	if b, _ := os.ReadFile(filepath.Join(out, ManifestName)); strings.Contains(string(b), "image") {
+		t.Fatalf("image в stash.json: %s", b)
+	}
+
+	m.Image = "assets/bad.png"
+	if _, err := Build(Options{Dir: filepath.Join(repo, "dist"), Out: t.TempDir(), Manifest: m, Version: "v1.0.0", ManifestDir: repo}); err == nil || !strings.Contains(err.Error(), "нужен PNG") {
+		t.Fatalf("ждали ошибку PNG, получили %v", err)
+	}
+}

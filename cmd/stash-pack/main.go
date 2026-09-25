@@ -36,12 +36,16 @@ func run(dir, manifestPath, version, out string) error {
 	if err != nil {
 		return err
 	}
-	res, err := pack.Build(pack.Options{Dir: dir, Out: out, Manifest: m, Version: version})
+	res, err := pack.Build(pack.Options{Dir: dir, Out: out, Manifest: m, Version: version, ManifestDir: filepath.Dir(manifestPath)})
 	if err != nil {
 		return err
 	}
 	fmt.Printf("%s %s: %d файлов, %s → package.zip %s\n", m.ID, version, res.Files, size(res.Size), size(res.ZipSize))
-	for _, name := range []string{pack.ManifestName, pack.FilesName, pack.PackageName} {
+	names := []string{pack.ManifestName, pack.FilesName, pack.PackageName}
+	if res.Image {
+		names = append(names, pack.ImageName)
+	}
+	for _, name := range names {
 		fmt.Println("  ", filepath.Join(out, name))
 	}
 	return nil
