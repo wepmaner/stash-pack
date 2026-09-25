@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 type Kind string
@@ -137,8 +139,11 @@ func (m *Manifest) Validate() error {
 		}
 	}
 	for _, d := range m.Data {
-		if !DataPathOK(d) {
+		switch {
+		case !DataPathOK(d):
 			bad("data", `%q — нужна папка вида ${APPDATA}\Имя или ${LOCALAPPDATA}\Имя`, d)
+		case !DataOwned(d, m.Owners()...):
+			bad("data", "%q — папка должна называться как программа (%s): чужие данные Stash не удаляет", d, strings.Join(m.Owners(), ", "))
 		}
 	}
 	if m.MinStash != "" && !versionRe.MatchString(m.MinStash) {
@@ -173,4 +178,46 @@ func DataPathOK(p string) bool {
 		}
 	}
 	return true
+}
+
+// IDOK — допустимый id приложения. Им же Stash называет папку программы, поэтому
+// пустой или с «..» id недопустим нигде.
+func IDOK(id string) bool { return idRe.MatchString(id) }
+
+// Owners — имена, по которым папка данных считается своей: id, название и имя exe.
+func (m *Manifest) Owners() []string {
+	out := []string{m.ID, m.Name}
+	if m.Entry != "" {
+		out = append(out, path.Base(strings.ReplaceAll(m.Entry, `\`, "/")))
+	}
+	return out
+}
+
+// DataOwned — первая папка пути данных названа как программа (без учёта регистра,
+// пробелов, дефисов и «.exe»): «${APPDATA}\TeamoAssistant» подходит программе
+// «Teamo Assistant», а опечатка «${APPDATA}\Google» — нет. Так ошибка в stash.json
+// не сотрёт чужие данные.
+func DataOwned(d string, owners ...string) bool {
+	parts := strings.FieldsFunc(d, func(r rune) bool { return r == '\\' || r == '/' })
+	if len(parts) < 2 {
+		return false
+	}
+	first := normName(parts[1])
+	for _, o := range owners {
+		if n := normName(o); n != "" && n == first {
+			return true
+		}
+	}
+	return false
+}
+
+func normName(s string) string {
+	s = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(s)), ".exe")
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

@@ -97,7 +97,33 @@ func TestDataPathOK(t *testing.T) {
 			t.Errorf("DataPathOK(%q) = %v, ждали %v", p, got, want)
 		}
 	}
-	if _, err := ParseManifest([]byte(`{"id":"a","name":"A","kind":"files","data":["${APPDATA}\..\x"]}`)); err == nil {
+	if _, err := ParseManifest([]byte(`{"id":"a","name":"A","kind":"files","data":["${APPDATA}\\a\\..\\x"]}`)); err == nil || !strings.Contains(err.Error(), "нужна папка вида") {
 		t.Error("плохой data прошёл проверку")
+	}
+}
+
+func TestDataOwned(t *testing.T) {
+	owners := (&Manifest{ID: "teamo-assistant", Name: "Teamo Assistant", Entry: "TeamoAssistant.exe"}).Owners()
+	for d, want := range map[string]bool{
+		`${APPDATA}\TeamoAssistant`:         true,
+		`${APPDATA}\TeamoAssistant.exe`:     true,
+		`${LOCALAPPDATA}\Teamo-Assistant\x`: true,
+		`${APPDATA}\Google`:                 false,
+		`${LOCALAPPDATA}\Programs`:          false,
+		`${APPDATA}\Microsoft`:              false,
+		`${APPDATA}\Teamo`:                  false,
+	} {
+		if got := DataOwned(d, owners...); got != want {
+			t.Errorf("DataOwned(%q) = %v, ждали %v", d, got, want)
+		}
+	}
+	_, err := ParseManifest([]byte(`{"id":"teamo-assistant","name":"Teamo Assistant","kind":"exe","entry":"TeamoAssistant.exe","data":["${APPDATA}\\Google"]}`))
+	if err == nil || !strings.Contains(err.Error(), "чужие данные") {
+		t.Fatalf("чужая папка прошла: %v", err)
+	}
+	for _, id := range []string{"", "..", "a/b", `a\b`, "A"} {
+		if IDOK(id) {
+			t.Errorf("IDOK(%q) = true", id)
+		}
 	}
 }
