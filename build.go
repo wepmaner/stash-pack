@@ -82,6 +82,11 @@ func Build(o Options) (*Result, error) {
 	if m.Kind == KindExe && !hasPath(entries, m.Entry) {
 		return nil, fmt.Errorf("entry %q нет в сборке %s", m.Entry, o.Dir)
 	}
+	if m.Kind == KindChrome {
+		if err := checkChromeManifest(o.Dir, version); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := os.MkdirAll(o.Out, 0o755); err != nil {
 		return nil, err
@@ -200,4 +205,24 @@ func hasPath(entries []Entry, p string) bool {
 		}
 	}
 	return false
+}
+
+// checkChromeManifest: у расширения в корне пакета есть manifest.json, и его
+// version совпадает с версией релиза — по ней расширение замечает, что Stash
+// обновил его файлы, а Chrome считает загруженной старую версию.
+func checkChromeManifest(dir, version string) error {
+	b, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		return fmt.Errorf("kind=chrome: в корне сборки нет manifest.json (%w)", err)
+	}
+	var cm struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(b, &cm); err != nil {
+		return fmt.Errorf("kind=chrome: manifest.json: %w", err)
+	}
+	if cm.Version != version {
+		return fmt.Errorf("kind=chrome: version в manifest.json %q, а релиз %q — проставьте версию из тега при сборке", cm.Version, version)
+	}
+	return nil
 }

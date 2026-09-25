@@ -157,3 +157,26 @@ func readJSON(t *testing.T, path string, v any) {
 		t.Fatal(err)
 	}
 }
+
+func TestBuildChrome(t *testing.T) {
+	m, err := ParseManifest([]byte(`{"id":"ext","name":"Расширение","kind":"chrome"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		files map[string]string
+		err   string
+	}{
+		{map[string]string{"manifest.json": `{"version":"1.4.0"}`, "popup.js": "x"}, ""},
+		{map[string]string{"popup.js": "x"}, "нет manifest.json"},
+		{map[string]string{"manifest.json": `{"version":"1.3"}`}, `"1.3", а релиз "1.4.0"`},
+	}
+	for _, c := range cases {
+		src := t.TempDir()
+		writeTree(t, src, c.files)
+		_, err := Build(Options{Dir: src, Out: t.TempDir(), Manifest: m, Version: "v1.4.0"})
+		if c.err == "" && err != nil || c.err != "" && (err == nil || !strings.Contains(err.Error(), c.err)) {
+			t.Fatalf("%v: ждали %q, получили %v", c.files, c.err, err)
+		}
+	}
+}

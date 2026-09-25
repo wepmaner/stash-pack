@@ -22,7 +22,7 @@ go run github.com/wepmaner/stash-pack/cmd/stash-pack@latest \
   "name": "Подсветка",
   "description": "…",
   "icon": "lightbulb", "hue": 45,   // иконка Lucide и оттенок плитки
-  "kind": "exe",                    // exe | files
+  "kind": "exe",                    // exe | files | chrome (manifest.json в корне, version = тег)
   "entry": "bridge.exe",            // для exe: что запускать
   "preserve": ["config.yaml"],      // файлы пользователя: не заменять, не удалять
   "exclude": ["*.md", "logs/**"],   // что не класть в пакет

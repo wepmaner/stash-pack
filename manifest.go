@@ -16,6 +16,9 @@ type Kind string
 const (
 	KindExe   Kind = "exe"
 	KindFiles Kind = "files"
+	// KindChrome — распакованное расширение Chrome: набор файлов с manifest.json
+	// в корне, который пользователь один раз загружает в chrome://extensions.
+	KindChrome Kind = "chrome"
 )
 
 // Manifest — stash.json. Лежит в корне репозитория приложения; в релиз уходит
@@ -110,9 +113,9 @@ func (m *Manifest) Validate() error {
 		if m.Entry == "" {
 			bad("entry", "для kind=exe укажите, какой exe запускать")
 		}
-	case KindFiles:
+	case KindFiles, KindChrome:
 	default:
-		bad("kind", "%q — поддерживаются exe и files", m.Kind)
+		bad("kind", "%q — поддерживаются exe, files и chrome", m.Kind)
 	}
 	if m.Hue < 0 || m.Hue > 360 {
 		bad("hue", "%d — нужен оттенок 0–360", m.Hue)
