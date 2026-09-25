@@ -24,7 +24,7 @@ go run github.com/wepmaner/stash-pack/cmd/stash-pack@latest \
   "icon": "lightbulb", "hue": 45,   // иконка Lucide и оттенок плитки
   "kind": "exe",                    // exe | files | chrome (manifest.json в корне, version = тег)
   "image": "assets/icon.png",       // своя иконка (PNG ≤ 512 КБ, путь от stash.json) → icon.png в релизе
-  "data": ["${APPDATA}\MyApp"],       // данные вне папки программы — удаляются только «вместе с данными»
+  "data": ["${APPDATA}\\MyApp"],    // данные вне папки программы — удаляются только «вместе с данными»
   "entry": "bridge.exe",            // для exe: что запускать
   "preserve": ["config.yaml"],      // файлы пользователя: не заменять, не удалять
   "exclude": ["*.md", "logs/**"],   // что не класть в пакет
